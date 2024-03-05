@@ -231,30 +231,48 @@ get_grams_ems <- function(dat, n, lexicon, lex, emot = lexicon::hash_emoticons){
 #' @returns A vector of signs (-1, 0, 1), of \code{length(word_li)}
 #' @export
 negates <- function(grams, word_li, tot_words, negators = lexicon::hash_valence_shifters){
-  neg <- negators[negators$y == 1, "x"]
+  neg <- negators[negators$y == 1, ]$x
   sent <- grams[1:tot_words]
   gram_ind <- which(grams %in% word_li)
+  unigrams <- grams[gram_ind[gram_ind <= tot_words]]
   scores <- rep(1, length(gram_ind))
-  ngram_li <- grams[gram_ind[gram_ind > tot_words]]
-  ngram_toks <- strsplit(ngram_li, " ")
-  ngram_inds <- which(grams %in% ngram_li)
-  # dedupe negated unigrams and ngrams containing negation
-  # omit unigrams in phrases, use ngram score instead
+  # If negation word in lexicon, assign negator score of 0
   scores[grams[gram_ind] %in% neg] <- 0 # assign 0 if negator and in lexicon
-  unigrams <- grams[gram_ind[gram_ind <= tot_words]] # grams[!ngram_inds]
-  #uni_ind <- which(grams %in% unigrams)
-  #uni_neg_ind <- which(grams %in% unigrams)-1
-  ov_inds <- paste(grams[which(grams %in% unigrams)-1], grams[which(grams %in% unigrams)]) %in% ngram_li
-  scores[ov_inds == TRUE] <- 0
-  if(length(ngram_li) > 0){
-  ngram_inds_sent <- unlist(lapply(ngram_toks, FUN = id_ngram_loc, sent_toks = sent))
-  #ngram_neg_inds_sent <- ngram_inds_sent - 1
-  all_neg_ind <- c((which(grams %in% unigrams)-1), (ngram_inds_sent - 1))} else {all_neg_ind <- which(grams %in% unigrams)-1}
-
+  if (length(grams[gram_ind[gram_ind > tot_words]]) > 0) {
+    ngram_li <- grams[gram_ind[gram_ind > tot_words]]
+    ngram_toks <- strsplit(ngram_li, " ")
+    ngram_inds <- which(grams %in% ngram_li)
+    ok <- lapply(ngram_toks, FUN = id_ngram_loc, sent_toks = sent)
+    names(ok) <- ngram_li
+    ok <- ok[!duplicated(names(ok))]
+    ngram_inds_start <- rep(1, length(ngram_li))
+    ngram_inds_end <- rep(1, length(ngram_li))
+    for(i in 1:length(ngram_li)){
+      ngram_inds_start[i] <- ok[[ngram_li[i]]][1]
+      ngram_inds_end[i] <- ngram_inds_start[i] + (sapply(ngram_toks[i], length)) - 1
+      ok[[ngram_li[i]]] <- ok[[ngram_li[i]]][-1]
+      scores[gram_ind %in% (ngram_inds_start[i]:ngram_inds_end[i])] <- 0
+    }
+    if(length(ngram_li) > 1){
+      for(i in 1:length(ngram_li)){
+        ngram_locats <- mapply(':', ngram_inds_start[-i], ngram_inds_end[-i])
+        self_ind <- ngram_inds_start[i]:ngram_inds_end[i]
+        if(any(unlist(lapply(ngram_locats, function(x) setequal(intersect(self_ind, x), self_ind)))) == TRUE){
+          scores[gram_ind %in% ngram_inds[i]] <- 0
+        }
+      }
+    }
+    all_neg_ind <- c((which(grams %in% unigrams) - 1), (ngram_inds_start - 1))
+  } else {
+    all_neg_ind <- which(grams %in% unigrams) - 1
+  }
+  all_neg_ind[all_neg_ind == 0] <- NA
   scores <- ifelse(scores == 0, 0,
-                   ifelse(gram_ind == 1 , 1,
+                   ifelse(gram_ind == 1 | is.na(all_neg_ind) ==TRUE , 1,
                           ifelse(grams[all_neg_ind] %in% neg == TRUE, -1, 1)))
-  return(scores)}
+  
+  return(scores)
+}
 
 
 #' Identify n-Gram Location in Text
