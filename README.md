@@ -61,9 +61,9 @@ The thirteen publicly-available lexicons included in the WoCSentiment package as
 Any of the above crowd lexicons can be accessed as a dataframe with columns "word" and "value" by using the `get_WoC_lexicon` function. 
 
 ## Contact
-Chelsey Hill
-Montclair State University
-[Email](mailto:hillc@montclair.edu)
+Chelsey Hill  
+Montclair State University  
+[hillc@montclair.edu](mailto:hillc@montclair.edu)
 
 
 ## References
